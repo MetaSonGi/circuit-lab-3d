@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8" /><title>sim.js 테스트</title>
+<style>body{font-family:Consolas,monospace;background:#070b16;color:#eaf0ff;padding:20px}.ok{color:#00e5a0}.bad{color:#ff5470}</style></head>
+<body><h1>sim.js 테스트</h1><pre id="out"></pre>
+<script type="module">
+import * as S from './sim.js';
+const out = document.getElementById('out');
+let pass = 0, fail = 0;
+const t = (name, fn) => {
+  try { fn(); pass++; out.innerHTML += `<span class="ok">✓ ${name}</span>\n`; }
+  catch (e) { fail++; out.innerHTML += `<span class="bad">✗ ${name} — ${e.message}</span>\n`; }
+};
+const eq = (a, b, msg = '') => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${msg} expected ${JSON.stringify(b)} got ${JSON.stringify(a)}`); };
+const o = (p) => ({ part: p.id, pin: 0, kind: 'out' });
+const i = (p, pin = 0) => ({ part: p.id, pin, kind: 'in' });
+
+t('every gate truth table', () => {
+  const exp = { AND: [0,0,0,1], OR: [0,1,1,1], NAND: [1,1,1,0], NOR: [1,0,0,0], XOR: [0,1,1,0], XNOR: [1,0,0,1] };
+  for (const [g, rows] of Object.entries(exp)) {
+    const c = S.createCircuit();
+    const a = S.addPart(c, 'SWITCH'), b = S.addPart(c, 'SWITCH'), x = S.addPart(c, g), l = S.addPart(c, 'LED');
+    S.connect(c, o(a), i(x, 0)); S.connect(c, o(b), i(x, 1)); S.connect(c, o(x), i(l));
+    eq(S.truthTable(c).rows.map((r) => r.outs[0]), rows, g);
+  }
+});
+t('NOT gate and floating input = 0', () => {
+  const c = S.createCircuit();
+  const n = S.addPart(c, 'NOT'), l = S.addPart(c, 'LED');
+  S.connect(c, i(l), o(n));
+  eq(S.simulate(c).ins.get(l.id), [1]);
+});
+t('auto labels A,B and Y1', () => {
+  const c = S.createCircuit();
+  eq([S.addPart(c, 'SWITCH').label, S.addPart(c, 'SWITCH').label, S.addPart(c, 'LED').label], ['A', 'B', 'Y1']);
+});
+t('connect rejects same kind / same part, input keeps one wire', () => {
+  const c = S.createCircuit();
+  const a = S.addPart(c, 'SWITCH'), b = S.addPart(c, 'SWITCH'), x = S.addPart(c, 'NOT');
+  eq(S.connect(c, o(a), o(b)), null);
+  eq(S.connect(c, o(x), i(x)), null);
+  S.connect(c, o(a), i(x)); S.connect(c, o(b), i(x));
+  eq(c.wires.length, 1); eq(c.wires[0].from.part, b.id);
+});
+t('removePart removes its wires', () => {
+  const c = S.createCircuit();
+  const a = S.addPart(c, 'SWITCH'), x = S.addPart(c, 'NOT');
+  S.connect(c, o(a), i(x));
+  S.removePart(c, x.id);
+  eq(c.wires.length, 0);
+});
+t('oscillating loop reports unstable', () => {
+  const c = S.createCircuit();
+  const n = S.addPart(c, 'NOT');
+  S.connect(c, o(n), i(n)); // same part rejected
+  const m = S.addPart(c, 'NOT'), k = S.addPart(c, 'NOT');
+  S.connect(c, o(n), i(m)); S.connect(c, o(m), i(k)); S.connect(c, o(k), i(n));
+  eq(S.simulate(c).stable, false);
+});
+t('every mission starts failing and has locked IO', () => {
+  for (const m of S.MISSIONS) {
+    const c = S.buildMission(m);
+    eq(c.parts.length, m.inputs.length + m.outputs.length, m.id);
+    eq(c.parts.every((p) => p.locked), true);
+    eq(S.checkMission(c, m).pass, false, m.id);
+  }
+});
+t('half adder mission passes with example circuit', () => {
+  const m = S.MISSIONS.find((x) => x.id === 'half-adder');
+  eq(S.checkMission(S.exampleCircuit(), m).pass, true);
+});
+t('NAND-only mission rejects NOT gate', () => {
+  const m = S.MISSIONS.find((x) => x.id === 'nand-not');
+  const c = S.buildMission(m);
+  const [a, y] = c.parts;
+  const n = S.addPart(c, 'NOT');
+  S.connect(c, o(a), i(n)); S.connect(c, o(n), i(y));
+  const r = S.checkMission(c, m);
+  eq(r.rows.every((x) => x.ok), true); eq(r.violations, ['NOT']); eq(r.pass, false);
+  S.removePart(c, n.id);
+  const g = S.addPart(c, 'NAND');
+  S.connect(c, o(a), i(g, 0)); S.connect(c, o(a), i(g, 1)); S.connect(c, o(g), i(y));
+  eq(S.checkMission(c, m).pass, true);
+});
+t('full adder solution passes', () => {
+  const m = S.MISSIONS.find((x) => x.id === 'full-adder');
+  const c = S.buildMission(m);
+  const [a, b, ci, s, co] = c.parts;
+  const x1 = S.addPart(c, 'XOR'), x2 = S.addPart(c, 'XOR'), a1 = S.addPart(c, 'AND'), a2 = S.addPart(c, 'AND'), r = S.addPart(c, 'OR');
+  S.connect(c, o(a), i(x1, 0)); S.connect(c, o(b), i(x1, 1));
+  S.connect(c, o(x1), i(x2, 0)); S.connect(c, o(ci), i(x2, 1)); S.connect(c, o(x2), i(s));
+  S.connect(c, o(a), i(a1, 0)); S.connect(c, o(b), i(a1, 1));
+  S.connect(c, o(x1), i(a2, 0)); S.connect(c, o(ci), i(a2, 1));
+  S.connect(c, o(a1), i(r, 0)); S.connect(c, o(a2), i(r, 1)); S.connect(c, o(r), i(co));
+  eq(S.checkMission(c, m).pass, true);
+});
+t('serialize round trip drops dangling wires', () => {
+  const c = S.exampleCircuit();
+  const j = JSON.parse(S.serialize(c));
+  j.wires.push({ id: 999, from: { part: 77, pin: 0 }, to: { part: 1, pin: 0 } });
+  const back = S.deserialize(JSON.stringify(j));
+  eq(back.wires.length, c.wires.length);
+  eq(back.nextId >= c.nextId, true);
+});
+out.innerHTML += `\n${fail ? '<span class="bad">' : '<span class="ok">'}${pass} passed, ${fail} failed</span>`;
+document.title = fail ? 'FAIL' : 'PASS';
+</script></body></html>

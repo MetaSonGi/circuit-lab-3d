@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>3D 논리회로 랩 — MetaSonGi</title>
+<meta name="description" content="3D 브레드보드에 논리 게이트를 놓고 전선을 연결하면 신호가 흐르는 웹 논리회로 실험실 — 미션 8개와 진리표 자동 채점" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<link rel="stylesheet" href="style.css?v=1" />
+<script type="importmap">{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }</script>
+</head>
+<body>
+<canvas id="scene" aria-label="3D 회로 보드"></canvas>
+
+<header class="topbar">
+  <a class="logo" href="https://metasongi.github.io/" title="성남 AI 랩으로">
+    <span class="logo-mark">◆</span> 3D 논리회로 랩 <span class="logo-sub">MetaSonGi</span>
+  </a>
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-mode="mission" role="tab">🎯 미션</button>
+    <button class="tab" data-mode="sandbox" role="tab">🧪 자유 실험</button>
+  </nav>
+  <div class="actions">
+    <button id="btnExample" class="ghost sandbox-only" title="반가산기 예제 불러오기">예제</button>
+    <button id="btnClear" class="ghost" title="보드 비우기">초기화</button>
+    <button id="btnCam" class="ghost" title="카메라 처음 위치 (R)">⟲</button>
+    <button id="btnHelp" class="ghost" title="사용법">?</button>
+  </div>
+</header>
+
+<aside class="palette" aria-label="부품">
+  <h3>부품</h3>
+  <div id="partList" class="part-list"></div>
+</aside>
+
+<aside class="side" id="side">
+  <button class="sheet-toggle" id="sheetToggle">📋 <span id="sheetLabel">미션</span></button>
+  <div class="side-body">
+    <section class="mission-only">
+      <div id="missionList" class="mission-list"></div>
+      <div class="card mission-card">
+        <div class="mission-head"><span id="mNum" class="m-num">01</span><h2 id="mTitle">-</h2></div>
+        <p class="goal" id="mGoal">-</p>
+        <p class="desc" id="mDesc">-</p>
+        <p class="allowed" id="mAllowed"></p>
+      </div>
+    </section>
+    <section class="card">
+      <div class="tt-head"><h3>진리표</h3><span id="ttState" class="badge">-</span></div>
+      <div class="tt-wrap"><table id="truth"></table></div>
+      <p class="tt-note" id="ttNote"></p>
+      <button id="btnCheck" class="primary mission-only">채점하기</button>
+    </section>
+  </div>
+</aside>
+
+<div id="selbar" class="selbar" hidden>
+  <span id="selName">-</span>
+  <button id="btnDelete" class="danger">🗑 삭제</button>
+</div>
+
+<p class="hint" id="hint">핀(●)을 끌어 다른 핀에 놓으면 전선 연결 · 스위치 클릭으로 ON/OFF · 빈 곳 드래그로 회전 · 휠/핀치로 확대</p>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<dialog id="help">
+  <h2>사용법</h2>
+  <ul>
+    <li><b>부품 놓기</b> — 왼쪽 부품을 누르면 보드에 놓입니다. 부품을 끌어 옮기세요.</li>
+    <li><b>전선 연결</b> — 출력 핀(오른쪽)을 눌러 입력 핀(왼쪽)으로 끌어다 놓으세요. 핀을 한 번씩 차례로 눌러도 됩니다.</li>
+    <li><b>신호 보기</b> — 켜진 전선은 초록빛으로 빛나고 빛 알갱이가 흐릅니다.</li>
+    <li><b>삭제</b> — 부품·전선을 누르고 🗑 삭제 또는 <kbd>Delete</kbd>. 전선은 더블클릭으로도 지워집니다.</li>
+    <li><b>카메라</b> — 빈 곳을 드래그해 회전, 오른쪽 드래그로 이동, 휠로 확대. <kbd>R</kbd>로 처음 위치.</li>
+    <li><b>미션</b> — 진리표의 모든 줄이 ✓가 되면 채점하기를 눌러 통과하세요. 진행 상황은 이 브라우저에 저장됩니다.</li>
+  </ul>
+  <form method="dialog"><button class="primary">시작하기</button></form>
+</dialog>
+
+<script type="module" src="app.js?v=1"></script>
+</body>
+</html>
